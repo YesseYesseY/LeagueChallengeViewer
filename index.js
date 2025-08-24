@@ -1,6 +1,7 @@
 const fs = require("fs");
 const Express = require("express");
-let challenges = {}; // require("./Challenges.json"); // /lol-challenges/v1/challenges/local-player
+const path = require("path");
+let challenges = {};
 let categories = {};
 let champs = {};
 let champIdsOrderedByName = [];
@@ -80,7 +81,9 @@ function StartExpress()
     const app = Express();
     
     app.get("/challenges", async (req, res) => res.json(await LCUGetJson("/lol-challenges/v1/challenges/local-player")));
-    app.get("/", (req, res) => {
+    app.get("/champs", async (req, res) => res.json(await LCUGetJson("/lol-game-data/assets/v1/champion-summary.json")));
+    app.get("/", async (req, res) => res.sendFile(path.resolve("./template.html")));
+    app.get("/legacy", (req, res) => {
         tosend = "<!DOCTYPE html><html><head><title>League Challenge Viewer</title></head><body>";
         Object.entries(categories).forEach(([key, val]) => {
             tosend += `<fieldset><legend>${key}</legend>`;

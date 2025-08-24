@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        const RankOrder = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"];
+        function RankSort(a, b) {
+            if (Array.isArray(a))
+            {
+                a = a[0];
+                b = b[0];
+            }
+            
+            return RankOrder.indexOf(a) - RankOrder.indexOf(b);
+        }
+
+        const Champs = {};
+        const ChampIdsOrderedByName = [];
+
+        function CreateFieldset(legendText) {
+            const ret = document.createElement("fieldset");
+            const legend = document.createElement("legend");
+            legend.append(document.createTextNode(legendText));
+            ret.append(legend)
+            return ret;
+        }
+
+        function CreateElementFromChallengeData(challengeData) {
+            const parentDiv = document.createElement("div");
+
+            const title = document.createElement("h1");
+            title.append(document.createTextNode(challengeData.name));
+            parentDiv.append(title);
+
+            const description = document.createElement("p");
+            description.append(document.createTextNode(challengeData.description));
+            parentDiv.append(description);
+
+            const rewardsHeader = document.createElement("h2");
+            rewardsHeader.append(document.createTextNode(`Rewards: (Current points: ${challengeData.currentValue})`));
+            parentDiv.append(rewardsHeader);
+
+            const rankList = document.createElement("ul");
+            // Why did i do rank sort for this when rankData.value is literally right there lol
+            Object.entries(challengeData.thresholds).sort(RankSort).forEach(([rankName, rankData]) => {
+                const rankListItem = document.createElement("li");
+                rankListItem.append(document.createTextNode(`${rankName} (${rankData.value} points required)`));
+                const rewardsList = document.createElement("ul");
+                rankData.rewards.forEach(e => {
+                    const rewardsListItem = document.createElement("li");
+                    rewardsListItem.append(document.createTextNode(`${e.quantity}x ${e.category} ${e.name == "" ? "" : `(${e.name})`}`));
+                    rewardsList.append(rewardsListItem);
+                });
+                rankListItem.append(rewardsList);
+                rankList.append(rankListItem);
+            });
+            parentDiv.append(rankList);
+
+            if (challengeData.idListType === "CHAMPION") {
+                let totalchampions = 0;
+                let totalcompleted = 0;
+
+                const progressDiv = document.createElement("div");
+                progressDiv.style = "display: grid; grid-template-columns: repeat(10, auto); gap: 10px;";
+                ChampIdsOrderedByName.forEach(champId => {
+                    if (champId != -1 && (challengeData.availableIds.includes(champId) || challengeData.availableIds.length === 0))
+                    {
+                        const champName = Champs[champId];
+                        const progressLabel = document.createElement("label");
+                        const progressCheckbox = document.createElement("input");
+                        progressCheckbox.type = "checkbox";
+                        const completed = challengeData.completedIds.includes(champId);
+                        progressCheckbox.checked = completed;
+                        progressCheckbox.onclick = () => {return false;};
+                        progressLabel.append(progressCheckbox, document.createTextNode(champName));
+                        progressDiv.append(progressLabel);
+                        totalchampions += 1;
+                        if (completed) totalcompleted += 1;
+                    }
+                })
+                const progressHeader = document.createElement("h2");
+                progressHeader.append(document.createTextNode(`Progress: (${totalcompleted}/${totalchampions})`));
+                parentDiv.append(progressHeader, progressDiv);
+            }
+
+            return parentDiv;
+        }
+
+        async function Main() {
+            const challengesData = await (await fetch("/challenges")).json();
+            (await (await fetch("/champs")).json()).forEach(e => Champs[e.id] = e.name);
+            Object.entries(Champs).sort(([_b, a], [_a, b]) => a.localeCompare(b)).forEach(([id]) => ChampIdsOrderedByName.push(Number(id)));
+            const categories = {};
+
+            Object.values(challengesData).forEach(e => {
+                if (!(e.category in categories))
+                    categories[e.category] = [];
+                
+                categories[e.category].push(e.id);
+            });
+
+            Object.entries(categories).forEach(([categoryName, challengeIds]) => {
+                const fieldSet = CreateFieldset(categoryName);
+                challengeIds.forEach(e => fieldSet.append(CreateElementFromChallengeData(challengesData[e])));
+                document.body.append(fieldSet);
+            });
+
+            console.log(categories);
+        }
+
+        Main();
+    </script>
+</body>
+</html>
